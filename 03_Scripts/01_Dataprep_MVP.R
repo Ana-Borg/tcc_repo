@@ -9,7 +9,7 @@ library(lubridate)
 library(zoo)
 
 # Set working directory and load data
-setwd("C:/Users/anacb/Documents/Poli/TCC/01_Bases")
+setwd("C:/Users/anacb/Documents/Poli/TCC/tcc_repo/01_Bases")
 
 sellin <- read_excel("SellIn.xlsx", col_types = c("text", 
                                                   "text", "text", "text", "text", "text", 
@@ -26,10 +26,10 @@ dt_sellout <- setDT(sellout)
 # Data prep
 dt_sellout <- dt_sellout[STORE_CNPJ == "21137886000190",]
 dt_sellout$STORE_CNPJ <- NULL
-dt_sellout$CREATE_DATE <- tstrsplit(dt_sellout$CREATE_DATE, " ")[1]
-dt_sellout$CREATE_DATE <- str_replace(dt_sellout$CREATE_DATE, "APR", "04")
-dt_sellout$CREATE_DATE <- str_replace(dt_sellout$CREATE_DATE, "MAY", "05")
-dt_sellout$CREATE_DATE <- as.Date(dt_sellout$CREATE_DATE, "%d-%m-%y")
+dt_sellout$DATE <- tstrsplit(dt_sellout$CREATE_DATE, " ")[1]
+dt_sellout$DATE <- str_replace(dt_sellout$DATE, "APR", "04")
+dt_sellout$DATE <- str_replace(dt_sellout$DATE, "MAY", "05")
+dt_sellout$DATE <- as.Date(dt_sellout$DATE, "%d-%m-%y")
 
 dt_sellin <-dt_sellin[,c(-3:-4)]
 dt_sellin$ISSUE_DATE <- tstrsplit(dt_sellin$ISSUE_DATE, " ")[1]
@@ -65,5 +65,5 @@ produtos_interesse <- produtos_interesse[EAN != 17,]
 (sum(produtos_interesse$SUBTOTAL)/receita_total)*100
 (sum(produtos_interesse$QTY)/vendas_total)*100
 
-View(dt_sellin[EAN %in% produtos_interesse$EAN,])
-View(dt_sellout[EAN %in% produtos_interesse$EAN,])
+#View(dt_sellin[EAN %in% produtos_interesse$EAN,])
+#View(dt_sellout[EAN %in% produtos_interesse$EAN,])
