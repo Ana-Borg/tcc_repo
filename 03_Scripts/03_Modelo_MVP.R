@@ -1,7 +1,15 @@
 library(ggplot2)
 library(forecast)
 library(tseries)
+library(MASS)
+library(pracma)
 
+RMSE = function(m, o){
+  dist <- m - o
+  dist <- dist[!is.na(dist)]
+  dist <- dist^2
+  sqrt(mean(dist))
+}
 
 # Séries temporais por produtos
 base_pao_frances <- base_modelo[EAN == "300096",]
@@ -9,12 +17,11 @@ ts_pao_frances <- ts(base_pao_frances$QTY_TOTAL, frequency = 7)
 
 base_pao_frances$CLEAN_QTY_TOTAL = tsclean(ts_pao_frances)
 
-base_pao_frances$QTY_TOTAL_MA = ma(base_pao_frances$CLEAN_QTY_TOTAL, order=2) 
 
 ggplot() +
   geom_line(data = base_pao_frances, aes(x = DATE, y = CLEAN_QTY_TOTAL, colour = "QTDE"))+
-  geom_line(data = base_pao_frances, aes(x = DATE, y = QTY_TOTAL_MA,   colour = "Moving Average"))  +
-  ylab('QTDE VENDIDA')
+  ylab('QTDE VENDIDA') + labs(title = "Qtde vendida - Pão Francês Kg")
+
 
 count_ma = ts(na.omit(base_pao_frances$QTY_TOTAL_MA), frequency=7)
 decomp = stl(count_ma, s.window="periodic")
@@ -74,15 +81,30 @@ xc2<-cos(4*pi/7*time)
 xs2<-sin(4*pi/7*time)
 xc3<-cos(6*pi/7*time)
 xs3<-sin(6*pi/7*time)
+xc4<-cos(8*pi/7*time)
+xs4<-sin(8*pi/7*time)
 
-pao_fit_lm <- lm(x_pao_frances_sen~xc1+xs1+xc2+xs2+xc3+xs3)
+pao_fit_lm <- lm(x_pao_frances_sen~xc1+xs1+xc2+xs2)
 
-summary(pao_fit_lm)
+
 plot(pao_fit_lm$fitted.values)
+
+output <- as.data.table(pao_fit_lm$fitted.values)
+colnames(output) <- "output"
+
+p <- ggplot(output, aes(time,output)) +
+  geom_point()+
+  geom_line(aes(y = x_pao_frances_sen), color = "red", linetype = "dashed")+
+  labs(x = "Dia") + labs(y = "QTDE") + labs(title = "Modelo Senoidal - 2h")
+
+p
 
 
 prox_semanas <- predict(pao_fit_lm, interval = "prediction")
-prox_semanas <- prox_semanas[1:21,]
+prox_semanas <- as.data.frame(prox_semanas[1:21,])
+
+# Média móvel
+model_ma = rollapplyr(base_pao_valid$QTY_TOTAL,list(-(2:1)),mean,fill=NA)
 
 # Gráfico final
 base_pao_valid <- variaveis[,c(-3,-10)]
@@ -100,3 +122,39 @@ p <- ggplot(output, aes(x,output$fit)) +
   geom_line(aes(y = base_pao_valid$QTY_TOTAL), color = "blue")
 
 p
+
+# Sinusoidal + média móvel
+# prox_semanas$ma <- as.numeric(model_ma)
+# sinu_ma <- as.data.table(prox_semanas)
+# 
+# sinu_ma$lwr_trig <- sinu_ma$fit - (sinu_ma$fit-sinu_ma$lwr)/1.7
+# sinu_ma$upr_trig <- sinu_ma$fit + (sinu_ma$upr-sinu_ma$fit)/1.7
+# sinu_ma[is.na(sinu_ma$ma),]$ma <- sinu_ma[is.na(sinu_ma$ma),]$fit
+# 
+# #sinu_ma$max_value <- apply(sinu_ma,1,max)
+# #sinu_ma$min_value <- apply(sinu_ma,1,min)
+# 
+# sinu_ma$output <- sinu_ma$fit
+# sinu_ma[ma > upr_trig]$output <- sinu_ma[ma > upr_trig]$upr
+# sinu_ma[ma < lwr_trig]$output <- sinu_ma[ma < lwr_trig]$lwr
+
+
+# Gráfico final
+
+p <- ggplot(output, ) +
+  geom_point(aes(x,output$fit, colour = "Modelo Sinusoidal"))+
+  geom_line(aes(y = output$fit, colour = "QTDE"), color = "red")+
+  geom_line(aes(y = lwr), color = "red", linetype = "dashed")+
+  geom_line(aes(y = upr), color = "red", linetype = "dashed")+
+  geom_line(aes(y = base_pao_valid$QTY_TOTAL), color = "blue")+
+  geom_line(aes(y = sinu_ma$ma), color = "green", linetype = "dashed")+
+  labs(x = "Dia") + labs(y = "Previsões") + labs(title = "Comparação entre modelos vs observado")
+
+
+p
+
+
+#Erro
+
+RMSE(base_pao_valid$QTY_TOTAL, model_ma)
+RMSE(base_pao_valid$QTY_TOTAL, output$fit)
